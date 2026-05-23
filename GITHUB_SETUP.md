@@ -45,7 +45,7 @@ Add these 4 secrets:
 | Name | Value |
 |------|-------|
 | `DOCKER_USERNAME` | `amith98480` |
-| `DOCKER_TOKEN` | `dckr_pat_QEx4NDceh2b8LA4Bo_mYwi_1BQI` |
+| `DOCKER_TOKEN` | *(your Docker Hub Personal Access Token)* |
 | `AWS_IP` | `44.205.0.187` |
 | `AWS_KEY` | *(contents of aws-fast-api.pem file)* |
 
