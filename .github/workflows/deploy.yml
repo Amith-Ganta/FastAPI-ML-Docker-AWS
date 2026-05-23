@@ -54,11 +54,9 @@ jobs:
         # Pull latest image
         docker pull ${{ secrets.DOCKER_USERNAME }}/fastapi-ml-docker-aws:latest
 
-        # Stop and remove old containers
-        docker stop fastapi-api 2>/dev/null || true
-        docker rm fastapi-api 2>/dev/null || true
-        docker stop streamlit-frontend 2>/dev/null || true
-        docker rm streamlit-frontend 2>/dev/null || true
+        # Stop and remove old containers (force remove)
+        docker rm -f fastapi-api 2>/dev/null || true
+        docker rm -f streamlit-frontend 2>/dev/null || true
 
         # Run API container
         docker run -d \
