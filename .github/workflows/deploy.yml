@@ -28,9 +28,7 @@ jobs:
     - name: Deploy to AWS
       run: |
         mkdir -p ~/.ssh
-        cat > ~/.ssh/aws-key.pem << 'EOF'
-        ${{ secrets.AWS_KEY }}
-        EOF
+        printf '%b' "${{ secrets.AWS_KEY }}" > ~/.ssh/aws-key.pem
         chmod 600 ~/.ssh/aws-key.pem
         ssh-keyscan -H ${{ secrets.AWS_IP }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
