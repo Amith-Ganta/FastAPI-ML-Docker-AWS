@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.DS_Store
+*.iml
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# AWS
+*.pem
+aws-keys/
+
+# Project specific
+*.csv
+*.json
+logs/
+.cache/
+
+# Git
+.git/
+.gitignore
+
+# OS
+*.log
+*.pot
+*.mo
+.DS_Store
+Thumbs.db
+
+# Miscellaneous
+*.tmp
+temp/
+node_modules/
