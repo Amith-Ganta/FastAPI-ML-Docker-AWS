@@ -58,20 +58,20 @@ jobs:
         echo "${{ secrets.DOCKER_TOKEN }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
 
         # Pull latest images
-        docker pull ${{ secrets.DOCKER_USERNAME }}/fastapi-ml-docker-aws:backend-latest
-        docker pull ${{ secrets.DOCKER_USERNAME }}/fastapi-ml-docker-aws:frontend-latest
+        sudo docker pull ${{ secrets.DOCKER_USERNAME }}/fastapi-ml-docker-aws:backend-latest
+        sudo docker pull ${{ secrets.DOCKER_USERNAME }}/fastapi-ml-docker-aws:frontend-latest
 
         # Stop and remove old containers (force remove all)
-        docker rm -f fastapi-api 2>/dev/null || true
-        docker rm -f streamlit-frontend 2>/dev/null || true
-        docker ps -a
+        sudo docker rm -f fastapi-api 2>/dev/null || true
+        sudo docker rm -f streamlit-frontend 2>/dev/null || true
+        sudo docker ps -a
         echo "=== Checking ports 8000 and 8501 ==="
         sudo lsof -i :8000 || echo "Port 8000 is free"
         sudo lsof -i :8501 || echo "Port 8501 is free"
         sleep 2
 
         # Run API container
-        docker run -d \
+        sudo docker run -d \
           --name fastapi-api \
           -p 8000:8000 \
           --restart unless-stopped \
@@ -81,7 +81,7 @@ jobs:
         sleep 3
 
         # Run Streamlit container with API URL
-        docker run -d \
+        sudo docker run -d \
           --name streamlit-frontend \
           -p 8501:8501 \
           --restart unless-stopped \
