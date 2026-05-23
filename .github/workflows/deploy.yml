@@ -25,17 +25,19 @@ jobs:
       run: |
         docker push ${{ secrets.DOCKER_USERNAME }}/fastapi-ml-docker-aws:latest
 
-    - name: Deploy to AWS
+    - name: Setup SSH agent
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ secrets.AWS_KEY }}
+
+    - name: Add EC2 host to known_hosts
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.AWS_KEY }}" | base64 --decode > ~/.ssh/aws-key.pem
-        chmod 600 ~/.ssh/aws-key.pem
-        echo "=== Key file first line ===" && head -1 ~/.ssh/aws-key.pem
-        echo "=== Key file last line ===" && tail -1 ~/.ssh/aws-key.pem
-        echo "=== Key file size ===" && wc -c ~/.ssh/aws-key.pem
-        ssh-keyscan -H ${{ secrets.AWS_IP }} >> ~/.ssh/known_hosts 2>/dev/null || true
+        ssh-keyscan -H ${{ secrets.AWS_IP }} >> ~/.ssh/known_hosts
 
-        ssh -i ~/.ssh/aws-key.pem ubuntu@${{ secrets.AWS_IP }} << 'EOF'
+    - name: Deploy to AWS
+      run: |
+        ssh ubuntu@${{ secrets.AWS_IP }} << 'EOF'
         set -e
         echo "🚀 Deploying to AWS..."
 
