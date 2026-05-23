@@ -54,9 +54,13 @@ jobs:
         # Pull latest image
         docker pull ${{ secrets.DOCKER_USERNAME }}/fastapi-ml-docker-aws:latest
 
-        # Stop and remove old containers (force remove)
+        # Stop and remove old containers (force remove all)
         docker rm -f fastapi-api 2>/dev/null || true
         docker rm -f streamlit-frontend 2>/dev/null || true
+        docker ps -a
+        echo "=== Checking port 8000 ==="
+        sudo lsof -i :8000 || echo "Port 8000 is free"
+        sleep 2
 
         # Run API container
         docker run -d \
