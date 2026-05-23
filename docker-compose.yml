@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    container_name: fastapi-api
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    ports:
+      - "8501:8501"
+    container_name: streamlit-frontend
+    depends_on:
+      - api
+    environment:
+      - PYTHONUNBUFFERED=1
