@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   api:
-    build: .
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     container_name: fastapi-api
@@ -11,7 +13,7 @@ services:
 
   frontend:
     build:
-      context: .
+      context: ./frontend
       dockerfile: Dockerfile.streamlit
     ports:
       - "8501:8501"
