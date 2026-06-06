@@ -39,7 +39,21 @@ jobs:
     - name: Add EC2 host to known_hosts
       run: |
         mkdir -p ~/.ssh
-        ssh-keyscan -H ${{ secrets.AWS_IP }} >> ~/.ssh/known_hosts
+        if [ -z "${{ secrets.AWS_IP }}" ]; then
+          echo "::error::AWS_IP secret is empty. Set it to the EC2 public/Elastic IP."
+          exit 1
+        fi
+        for i in 1 2 3 4 5 6; do
+          if ssh-keyscan -H "${{ secrets.AWS_IP }}" >> ~/.ssh/known_hosts 2>/dev/null \
+             && [ -s ~/.ssh/known_hosts ]; then
+            echo "✅ Host key collected for ${{ secrets.AWS_IP }}"
+            exit 0
+          fi
+          echo "ssh-keyscan attempt $i/6 failed (host not reachable yet); retrying in 10s…"
+          sleep 10
+        done
+        echo "::error::Could not reach ${{ secrets.AWS_IP }}:22. Check the instance is running and the security group allows SSH (port 22)."
+        exit 1
 
     - name: Deploy to AWS
       run: |
