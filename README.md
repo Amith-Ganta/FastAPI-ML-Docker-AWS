@@ -1,6 +1,13 @@
-# Insurance Premium Category Predictor
+# 🏥 Insurance Premium Category Predictor
 
-A full-stack machine learning application that predicts insurance premium categories based on user demographics and health metrics. Built with FastAPI backend and Streamlit frontend, containerized with Docker, and deployed to AWS EC2 via GitHub Actions CI/CD.
+> A full-stack machine learning app that predicts insurance premium categories from user demographics and health metrics — **FastAPI** + **Streamlit**, containerized with **Docker**, and shipped to **AWS EC2** via a **GitHub Actions** CI/CD pipeline.
+
+[![Deploy to AWS](https://github.com/Amith-Ganta/FastAPI-ML-Docker-AWS/actions/workflows/deploy.yml/badge.svg)](https://github.com/Amith-Ganta/FastAPI-ML-Docker-AWS/actions/workflows/deploy.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.43-FF4B4B.svg?logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg?logo=docker&logoColor=white)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#license)
 
 ## Features
 
@@ -143,18 +150,89 @@ cd backend && uvicorn app:app --reload --port 8000
 cd frontend && streamlit run frontend.py --server.port 8501
 ```
 
-## Architecture
+## 🏗️ Architecture
 
-For system architecture and design decisions, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+### System overview
 
-## Deployment Pipeline
+```mermaid
+flowchart LR
+    subgraph CLIENT["🖥️ Client"]
+        USER["User<br/><i>browser</i>"]
+    end
 
-1. Code pushed to `main` branch
-2. GitHub Actions workflow triggered
-3. Docker images built and pushed to Docker Hub
-4. SSH into AWS EC2 instance
-5. Pull latest images and start containers
-6. Verify endpoints are healthy
+    subgraph EC2["☁️ AWS EC2 · Docker"]
+        FE["🎨 Streamlit<br/><i>frontend · :8501</i>"]
+        subgraph API["⚡ FastAPI · :8000"]
+            VAL{"✅ Pydantic<br/>UserInput"}
+            FEAT["🧮 Feature engineering<br/><i>bmi · age_group<br/>lifestyle_risk · city_tier</i>"]
+            MODEL["🧠 model.pkl<br/><i>scikit-learn</i>"]
+        end
+    end
+
+    USER -- "form input" --> FE
+    FE -- "POST /predict (JSON)" --> VAL
+    VAL -- "validated" --> FEAT
+    FEAT --> MODEL
+    MODEL -- "predicted_category" --> FE
+    FE -- "result" --> USER
+
+    classDef client fill:#EEF2FF,stroke:#6366F1,stroke-width:1px,color:#1E1B4B;
+    classDef gate fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#78350F;
+    classDef svc fill:#ECFDF5,stroke:#10B981,stroke-width:1px,color:#064E3B;
+    classDef store fill:#FCE7F3,stroke:#EC4899,stroke-width:1px,color:#831843;
+    class USER client;
+    class VAL gate;
+    class FE,FEAT svc;
+    class MODEL store;
+```
+
+Two containers run side by side via Docker Compose: a Streamlit frontend
+(`:8501`) and a FastAPI backend (`:8000`). The API validates input with Pydantic,
+derives features (BMI, age group, lifestyle risk, city tier) from the raw
+payload, and runs them through a pre-trained scikit-learn model loaded from
+`model.pkl`. The frontend `depends_on` the API so it never starts before its
+backend.
+
+### Request lifecycle
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant FE as 🎨 Streamlit
+    participant API as ⚡ FastAPI /predict
+    participant Model as 🧠 model.pkl
+
+    User->>FE: Enter age, weight, height, city, occupation…
+    FE->>API: POST /predict (JSON)
+    API->>API: Validate (Pydantic) + compute BMI, tiers, risk
+    API->>Model: model.predict(features)
+    Model-->>API: premium category
+    API-->>FE: { "predicted_category": "High" }
+    FE-->>User: 🎯 Display predicted category
+```
+
+### CI/CD pipeline
+
+```mermaid
+flowchart LR
+    DEV["👩‍💻 git push<br/><i>main</i>"] --> GHA["⚙️ GitHub Actions<br/><i>deploy.yml</i>"]
+    GHA --> BUILD["🐳 Build images<br/><i>backend + frontend</i>"]
+    BUILD --> HUB["📦 Docker Hub<br/><i>push :latest tags</i>"]
+    HUB --> SSH["🔑 SSH → EC2"]
+    SSH --> PULL["⬇️ Pull + run<br/><i>restart: unless-stopped</i>"]
+    PULL --> LIVE["🌐 Live<br/><i>:8000 /docs · :8501</i>"]
+
+    classDef step fill:#ECFDF5,stroke:#10B981,stroke-width:1px,color:#064E3B;
+    classDef ship fill:#EEF2FF,stroke:#6366F1,stroke-width:1px,color:#1E1B4B;
+    class DEV,GHA,BUILD step;
+    class HUB,SSH,PULL,LIVE ship;
+```
+
+A push to `main` (or a manual `workflow_dispatch`) triggers GitHub Actions to
+build both images, push them to Docker Hub, then SSH into the EC2 host to pull
+the new images and restart the containers. For the deep dive on design
+decisions, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Environment Variables
 
