@@ -93,15 +93,15 @@ This repo is deliberately small in domain scope and deep in **engineering practi
 
 ```mermaid
 flowchart LR
-    subgraph CLIENT["🖥️ Clients"]
-        USER["User<br/><i>browser / curl</i>"]
-        FE["🎨 Streamlit UI<br/><i>:8501</i>"]
+    subgraph CLIENT["Clients"]
+        USER["User<br/>browser / curl"]
+        FE["Streamlit UI<br/>port 8501"]
     end
 
-    subgraph IMG["🐳 insurance-premium-api · :8000"]
-        VAL{"✅ Pydantic<br/>UserInput"}
-        FEAT["🧮 Feature engineering<br/><i>bmi · age_group<br/>lifestyle_risk · city_tier</i>"]
-        MODEL["🧠 model.pkl<br/><i>scikit-learn pipeline</i>"]
+    subgraph IMG["insurance-premium-api · port 8000"]
+        VAL{"Pydantic<br/>UserInput"}
+        FEAT["Feature engineering<br/>bmi · age_group<br/>lifestyle_risk · city_tier"]
+        MODEL["model.pkl<br/>scikit-learn pipeline"]
     end
 
     USER -- "POST /predict (JSON)" --> VAL
@@ -129,26 +129,26 @@ The core deliverable is a **stateless FastAPI container**: it validates the payl
 sequenceDiagram
     autonumber
     actor User
-    participant API as ⚡ FastAPI /predict
-    participant Model as 🧠 model.pkl
+    participant API as FastAPI /predict
+    participant Model as model.pkl
 
-    User->>API: POST /predict (age, weight, height, city, occupation…)
+    User->>API: POST /predict (age, weight, height, city, occupation)
     API->>API: Validate (Pydantic) + compute BMI, tiers, lifestyle risk
     API->>Model: predict() + predict_proba()
     Model-->>API: class + probability vector
-    API-->>User: { response: { predicted_category, confidence, class_probabilities } }
+    API-->>User: response - predicted_category, confidence, class_probabilities
 ```
 
 ### CI/CD pipeline — *test before you ship*
 
 ```mermaid
 flowchart LR
-    DEV["👩‍💻 git push<br/><i>main</i>"] --> GHA["⚙️ GitHub Actions<br/><i>deploy.yml</i>"]
-    GHA --> PULL["🐳 Resolve image<br/><i>tag → amith98480/*</i>"]
-    PULL --> TEST["🧪 Boot + smoke-test<br/><i>/docs · /predict</i>"]
-    TEST --> BUILD["🎨 Build Streamlit UI"]
-    BUILD --> HUB["📦 Push to Docker Hub<br/><i>:latest</i>"]
-    HUB --> EC2["🌐 SSH deploy → EC2<br/><i>api :8000 · ui :8501</i>"]
+    DEV["git push<br/>main"] --> GHA["GitHub Actions<br/>deploy.yml"]
+    GHA --> PULL["Resolve image<br/>tag to amith98480"]
+    PULL --> TEST["Boot + smoke-test<br/>/docs · /predict"]
+    TEST --> BUILD["Build Streamlit UI"]
+    BUILD --> HUB["Push to Docker Hub<br/>latest"]
+    HUB --> EC2["SSH deploy to EC2<br/>api 8000 · ui 8501"]
 
     classDef step fill:#ECFDF5,stroke:#10B981,stroke-width:1px,color:#064E3B;
     classDef ship fill:#EEF2FF,stroke:#6366F1,stroke-width:1px,color:#1E1B4B;
