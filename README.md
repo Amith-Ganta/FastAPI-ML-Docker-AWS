@@ -1,26 +1,41 @@
 # 🏥 Insurance Premium Category Predictor
 
-> A production-style machine-learning microservice that predicts an insurance **premium category** (Low / Medium / High) from a person's demographic and lifestyle profile — built with **FastAPI** + **scikit-learn**, packaged as a single portable **Docker image**, and shipped through a self-validating **GitHub Actions** CI/CD pipeline.
+> An end-to-end **MLOps** project: a machine-learning model served behind a typed **FastAPI** API, packaged as an immutable **Docker** image, validated and shipped by a self-testing **GitHub Actions** pipeline, and deployed live to **AWS EC2** alongside a **Streamlit** UI.
+
+It predicts an insurance **premium category** (`Low` / `Medium` / `High`) from a person's demographic and lifestyle profile — and returns a confidence score plus the full probability distribution, not just a bare label.
 
 [![CI/CD Pipeline](https://github.com/Amith-Ganta/FastAPI-ML-Docker-AWS/actions/workflows/deploy.yml/badge.svg)](https://github.com/Amith-Ganta/FastAPI-ML-Docker-AWS/actions/workflows/deploy.yml)
 [![Docker Image](https://img.shields.io/badge/Docker%20Hub-amith98480%2Finsurance--premium--api-2496ED.svg?logo=docker&logoColor=white)](https://hub.docker.com/r/amith98480/insurance-premium-api)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.6-F7931E.svg?logo=scikitlearn&logoColor=white)](https://scikit-learn.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#license)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## 🚀 Run it in 10 seconds
+## 🔴 Live demo
 
-The service is published as a ready-to-run image on Docker Hub. No clone, no build, no Python toolchain required:
+The full stack is deployed and running on AWS right now:
+
+| | URL | What it is |
+|---|-----|------------|
+| 🧠 **API (Swagger)** | **http://204.236.207.23:8000/docs** | Interactive API — send a live prediction from the browser |
+| 🎨 **Streamlit UI** | **http://204.236.207.23:8501** | Friendly web form for non-technical users |
+
+> *Demo instance on a single `t3.micro` — please be gentle. If it's down, the 10-second local run below gives you the identical experience.*
+
+---
+
+## 🚀 Run it locally in 10 seconds
+
+No clone, no build, no Python toolchain — the API ships as a ready-to-run image:
 
 ```bash
 docker pull amith98480/insurance-premium-api:latest
 docker run -p 8000:8000 amith98480/insurance-premium-api:latest
 ```
 
-Then open the interactive API docs at **http://localhost:8000/docs** and try a live prediction.
+Then open **http://localhost:8000/docs** and try a live prediction:
 
 ```bash
 curl -X POST http://localhost:8000/predict \
@@ -40,29 +55,35 @@ curl -X POST http://localhost:8000/predict \
 
 ---
 
-## ✨ Highlights
+## 🎯 What this project demonstrates
 
-- **Single source of truth** — the API ships as one immutable image, `amith98480/insurance-premium-api:latest`. The same artifact runs on a laptop, in CI, and in production.
-- **Rich, honest predictions** — every response returns not just the predicted class but a **confidence score** and the **full probability distribution** across all categories.
-- **Self-validating CI/CD** — GitHub Actions mirrors the image into the project's Docker Hub namespace, boots it, and smoke-tests `/docs` and `/predict` against the real HTTP contract *before* publishing **and** deploying. A broken image never reaches production.
-- **Typed, self-documenting API** — Pydantic validates every field and auto-generates OpenAPI / Swagger docs at `/docs`.
-- **Smart feature engineering** — raw inputs are transformed into the signals the model actually learned on: BMI, age group, lifestyle risk, and city tier.
-- **Optional Streamlit UI** — a friendly web frontend for non-technical users, wired to the same API.
+This repo is deliberately small in domain scope and deep in **engineering practice**. It's a portfolio piece for the part that's hard to fake — taking a model and making it a *reliable, reproducible, deployed service*.
+
+| Competency | Where to see it |
+|------------|-----------------|
+| **API design** — typed, validated, self-documenting | [`backend/app.py`](backend/app.py) · Pydantic schema + auto OpenAPI at `/docs` |
+| **Containerization** — single immutable artifact | [`backend/Dockerfile`](backend/Dockerfile) · one image runs anywhere |
+| **CI/CD engineering** — self-validating pipeline | [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) · test-before-ship, guarded steps |
+| **Cloud deployment** — automated SSH rollout to EC2 | deploy job → `204.236.207.23` · `--restart unless-stopped` |
+| **Full-stack delivery** — UI wired to the service | [`frontend/frontend.py`](frontend/frontend.py) · Streamlit → API |
+| **Reproducibility** — pinned deps, compose for local | [`docker-compose.yml`](docker-compose.yml) · local == prod |
+| **ML serving done honestly** — probabilities, not just labels | `predict_proba` → confidence + full distribution |
 
 ---
 
-## 🧱 Tech Stack
+## 🧱 Tech stack
 
 | Layer | Technology |
 |-------|-----------|
-| API framework | FastAPI 0.115 |
-| ML framework | scikit-learn 1.6 |
+| API framework | FastAPI 0.115 · Uvicorn |
+| ML framework | scikit-learn 1.6 (pinned — pickle compatibility) |
 | Validation | Pydantic 2.11 |
 | Data handling | pandas 2.2 |
 | Packaging | Docker · Docker Compose |
-| Registry | Docker Hub (`amith98480/insurance-premium-api`) |
+| Registry | Docker Hub (`amith98480/*`) |
 | CI/CD | GitHub Actions |
-| Optional UI | Streamlit 1.43 |
+| Cloud | AWS EC2 (Ubuntu) |
+| UI | Streamlit 1.43 |
 
 ---
 
@@ -74,7 +95,7 @@ curl -X POST http://localhost:8000/predict \
 flowchart LR
     subgraph CLIENT["🖥️ Clients"]
         USER["User<br/><i>browser / curl</i>"]
-        FE["🎨 Streamlit UI<br/><i>optional · :8501</i>"]
+        FE["🎨 Streamlit UI<br/><i>:8501</i>"]
     end
 
     subgraph IMG["🐳 insurance-premium-api · :8000"]
@@ -100,7 +121,7 @@ flowchart LR
     class MODEL store;
 ```
 
-The core deliverable is a **stateless FastAPI container**. It validates the incoming payload with Pydantic, derives the engineered features the model was trained on, and runs them through a pre-trained scikit-learn pipeline loaded from `model.pkl`. Clients can be anything that speaks HTTP — `curl`, a notebook, another service, or the bundled Streamlit UI.
+The core deliverable is a **stateless FastAPI container**: it validates the payload with Pydantic, derives the engineered features the model was trained on, and runs them through a pre-trained scikit-learn pipeline loaded from `model.pkl`. Any HTTP client works — `curl`, a notebook, another service, or the bundled Streamlit UI. Statelessness is deliberate: it makes the service horizontally scalable and trivially replaceable.
 
 ### Request lifecycle
 
@@ -118,32 +139,50 @@ sequenceDiagram
     API-->>User: { response: { predicted_category, confidence, class_probabilities } }
 ```
 
-### CI/CD pipeline
+### CI/CD pipeline — *test before you ship*
 
 ```mermaid
 flowchart LR
     DEV["👩‍💻 git push<br/><i>main</i>"] --> GHA["⚙️ GitHub Actions<br/><i>deploy.yml</i>"]
-    GHA --> PULL["🐳 Pull upstream<br/><i>+ retag → amith98480/*</i>"]
+    GHA --> PULL["🐳 Resolve image<br/><i>tag → amith98480/*</i>"]
     PULL --> TEST["🧪 Boot + smoke-test<br/><i>/docs · /predict</i>"]
-    TEST --> HUB["📦 Push replicas<br/><i>Docker Hub :latest</i>"]
-    HUB --> EC2["🌐 SSH deploy → EC2<br/><i>204.236.207.23:8000</i>"]
+    TEST --> BUILD["🎨 Build Streamlit UI"]
+    BUILD --> HUB["📦 Push to Docker Hub<br/><i>:latest</i>"]
+    HUB --> EC2["🌐 SSH deploy → EC2<br/><i>api :8000 · ui :8501</i>"]
 
     classDef step fill:#ECFDF5,stroke:#10B981,stroke-width:1px,color:#064E3B;
     classDef ship fill:#EEF2FF,stroke:#6366F1,stroke-width:1px,color:#1E1B4B;
-    class DEV,GHA,PULL,TEST step;
+    class DEV,GHA,PULL,TEST,BUILD step;
     class HUB,EC2 ship;
 ```
 
-> **Image provenance.** The working API image originates upstream at `tweakster24/insurance-premium-api`. The pipeline **mirrors** it into this project's own Docker Hub namespace — `amith98480/insurance-premium-api` and `amith98480/fastapi-ml-docker-aws` — so the deployed artifact is always owned and controlled here.
+The pipeline's defining property: **a broken image can never reach production.** Every run boots the container and asserts the real `/docs` and `/predict` endpoints return the expected contract *before* anything is published or deployed. The publish and deploy stages are **independently guarded** — if their secrets aren't configured, those steps skip cleanly and the run stays green, so the pipeline is safe to run from a fork or before infra exists.
 
-Every push to `main` (or a manual `workflow_dispatch`) pulls the upstream image, retags it under `amith98480/*`, **runs it**, and asserts the live `/docs` and `/predict` endpoints return the expected contract. Only a verified image is published to Docker Hub and rolled out to EC2. The publish and deploy steps are **guarded** — if their secrets aren't configured, those steps skip cleanly and the run stays green. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design rationale.
+> **🔍 Image provenance — full transparency.** The trained model artifact originates from the upstream image `tweakster24/insurance-premium-api`. This project's engineering contribution is the layer *around* the model: the API contract, containerization, the self-validating CI/CD pipeline, the cloud deployment, and the full-stack UI. The pipeline mirrors the upstream artifact into this project's own Docker Hub namespace (`amith98480/insurance-premium-api` and `amith98480/fastapi-ml-docker-aws`) so the deployed, owned artifact is always reproducible and under this project's control.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design rationale.
 
 ---
 
-## 📡 API Reference
+## 🧠 Design decisions & trade-offs
+
+The choices a reviewer would actually ask about — and the honest reasoning behind them.
+
+| Decision | Why | Trade-off accepted |
+|----------|-----|--------------------|
+| **Immutable image as the unit of release** | The exact bytes tested in CI are the bytes that run in prod — zero "works on my machine" drift. | No per-environment build flexibility; config must come in via env/runtime. |
+| **`/docs` as the readiness probe** | Guaranteed to exist on any FastAPI app; no extra endpoint to maintain or drift. | Slightly heavier than a bare `/health`; fine at this scale. |
+| **Guarded CI steps over hard dependencies** | Pipeline stays green on forks / before secrets exist; failures are *real* failures, not missing-config noise. | A misconfigured secret silently skips rather than shouting — documented in the deploy table. |
+| **Return full probability distribution** | Lets consumers act on confidence and build thresholds, not just trust a top label. | Marginally larger payload; exposes model uncertainty (a feature, not a bug). |
+| **Stateless service, no DB** | Horizontal scaling and restarts are free; nothing to back up. | No request audit trail yet — see roadmap. |
+| **Streamlit for the UI** | Fastest path to a usable demo for non-technical reviewers. | Not a production frontend; it's a thin client over the API. |
+
+---
+
+## 📡 API reference
 
 ### `GET /docs`
-Interactive Swagger UI — also used as the readiness probe by Docker and the CI smoke tests. `GET /redoc` and `GET /openapi.json` are available too.
+Interactive Swagger UI — also the readiness probe used by Docker and the CI smoke tests. `GET /redoc` and `GET /openapi.json` are available too.
 
 ### `POST /predict`
 Predict the insurance premium category for a user profile.
@@ -172,7 +211,7 @@ Predict the insurance premium category for a user profile.
 | `city` | string | any city name |
 | `occupation` | enum | `retired`, `freelancer`, `student`, `government_job`, `business_owner`, `unemployed`, `private_job` |
 
-**Response**
+**Response** — `200 OK`
 
 ```json
 {
@@ -184,91 +223,57 @@ Predict the insurance premium category for a user profile.
 }
 ```
 
-Full reference: [docs/API.md](docs/API.md). Interactive docs are served at `/docs` (Swagger) and `/redoc`.
+Validation errors return `422` with a precise field-level reason. Full reference: [docs/API.md](docs/API.md).
 
 ---
 
-## 🧠 The Model
+## 🧮 The model & feature engineering
 
-The classifier doesn't consume raw inputs directly — it learns on **engineered features** derived inside the API:
+The classifier doesn't consume raw inputs — it learns on **engineered features** derived inside the API, so the same transformation logic is guaranteed at train and serve time:
 
 | Engineered feature | Derived from |
 |--------------------|--------------|
 | `bmi` | weight / height² |
 | `age_group` | young / adult / middle_aged / senior |
 | `lifestyle_risk` | smoker status + BMI |
-| `city_tier` | tier-1 / tier-2 / tier-3 city lookup |
+| `city_tier` | tier-1 / tier-2 / tier-3 lookup |
 | `income_lpa`, `occupation` | passed through |
 
-The output is a discrete premium category plus a calibrated probability for **every** class, so consumers can act on confidence — not just the top label.
+Output is a discrete premium category **plus a probability for every class**, so consumers can act on confidence rather than a single hard label.
 
 ---
 
-## 🛠️ Local Development
+## 🛠️ Local development
 
-### Option A — Just the API (recommended)
-
+**Option A — just the API (fastest)**
 ```bash
 docker pull amith98480/insurance-premium-api:latest
 docker run -p 8000:8000 amith98480/insurance-premium-api:latest
 # → http://localhost:8000/docs
 ```
 
-### Option B — Full stack with Docker Compose (API + Streamlit UI)
-
+**Option B — full stack with Docker Compose (API + UI)**
 ```bash
 git clone https://github.com/Amith-Ganta/FastAPI-ML-Docker-AWS.git
 cd FastAPI-ML-Docker-AWS
 docker compose up --build
-# API:  http://localhost:8000/docs
-# UI:   http://localhost:8501
+# API: http://localhost:8000/docs   ·   UI: http://localhost:8501
 ```
 
-### Option C — Bare metal (no Docker)
-
+**Option C — bare metal (no Docker)**
 ```bash
-# Backend
-cd backend && pip install -r requirements.txt
-uvicorn app:app --reload --port 8000
-
-# Frontend (separate terminal)
-cd frontend && pip install -r requirements.txt
-streamlit run frontend.py --server.port 8501
+cd backend && pip install -r requirements.txt && uvicorn app:app --reload --port 8000
+# new terminal:
+cd frontend && pip install -r requirements.txt && streamlit run frontend.py --server.port 8501
 ```
 
-More detail in [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md).
-
----
-
-## 📁 Project Structure
-
-```
-FastAPI-ML-Docker-AWS/
-├── backend/                   # FastAPI service (reference source for the API)
-│   ├── app.py                 # API: validation, feature engineering, inference
-│   ├── model.pkl              # Trained scikit-learn pipeline
-│   ├── Dockerfile             # Image definition
-│   └── requirements.txt
-│
-├── frontend/                  # Optional Streamlit UI
-│   ├── frontend.py
-│   ├── Dockerfile.streamlit
-│   └── requirements.txt
-│
-├── docs/                      # API, architecture, setup & deployment guides
-├── data/                      # Training & sample data
-├── scripts/                   # Helper scripts
-├── .github/workflows/         # CI/CD: mirror → smoke-test → publish → deploy
-│   └── deploy.yml
-├── docker-compose.yml         # Full-stack local orchestration
-└── README.md
-```
+More in [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md).
 
 ---
 
 ## 🚢 Deployment
 
-CI/CD deploys automatically to the AWS EC2 host (`204.236.207.23`) on every push to `main`, once the AWS secrets are set (see below). To deploy manually anywhere, it's the same two commands:
+CI/CD deploys automatically to AWS EC2 (`204.236.207.23`) on every push to `main`, once the secrets below are set. To deploy by hand anywhere, it's the same two commands — laptop, VM, EC2, or any container platform:
 
 ```bash
 docker pull amith98480/insurance-premium-api:latest
@@ -276,7 +281,7 @@ docker run -d --name insurance-premium-api -p 8000:8000 \
   --restart unless-stopped amith98480/insurance-premium-api:latest
 ```
 
-This works identically on a laptop, a bare VM, AWS EC2, or any container platform. The full deployment playbook (including EC2 and security-group notes) lives in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Full playbook (EC2 setup, security groups, the Streamlit container) in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ### CI/CD secrets
 
@@ -288,24 +293,57 @@ This works identically on a laptop, a bare VM, AWS EC2, or any container platfor
 | `AWS_SSH_KEY` | EC2 private key (PEM contents) | `-----BEGIN …` |
 | `AWS_USER` | EC2 SSH user *(optional, defaults to `ubuntu`)* | `ubuntu` |
 
-Publish and deploy are independently guarded — set just the Docker secrets to publish, add the AWS secrets to also deploy. Missing secrets skip their step without failing the run.
+Publish and deploy are independently guarded — set just the Docker secrets to publish; add the AWS secrets to also deploy.
+
+---
+
+## 🗺️ Production-readiness roadmap
+
+Honest about what a *real* production rollout would add next — the gap between a portfolio demo and a system on call at 3 a.m.:
+
+- **TLS + reverse proxy** (Caddy/Traefik) — HTTPS, not raw `:8000`.
+- **Authentication & rate limiting** — API keys, per-client quotas.
+- **Observability** — structured logs, Prometheus metrics, request/latency tracing.
+- **Horizontal scale** — multiple replicas behind a load balancer (the stateless design already allows this).
+- **Model lifecycle** — a retraining pipeline, model registry, and versioned rollouts with A/B comparison.
+- **Request audit store** — persist inputs/predictions for monitoring drift and debugging.
+- **Hardening** — least-privilege SSH (lock port 22 to known IPs), rotated keys, secrets in a manager rather than plain GitHub secrets.
+
+---
+
+## 📁 Project structure
+
+```
+FastAPI-ML-Docker-AWS/
+├── backend/                   # FastAPI service (the API source)
+│   ├── app.py                 # validation · feature engineering · inference
+│   ├── model.pkl              # trained scikit-learn pipeline
+│   ├── Dockerfile
+│   └── requirements.txt
+├── frontend/                  # Streamlit UI (thin client over the API)
+│   ├── frontend.py
+│   ├── Dockerfile.streamlit
+│   └── requirements.txt
+├── .github/workflows/
+│   └── deploy.yml             # CI/CD: resolve → smoke-test → publish → deploy
+├── docs/                      # API · architecture · setup · deployment guides
+├── docker-compose.yml         # full-stack local orchestration
+├── LICENSE
+└── README.md
+```
 
 ---
 
 ## 🩹 Troubleshooting
 
-**Port 8000 already in use**
 ```bash
+# Port 8000 already in use
 docker rm -f insurance-premium-api 2>/dev/null || true
-```
 
-**Check container logs**
-```bash
+# Inspect logs
 docker logs insurance-premium-api
-```
 
-**Verify the service is up**
-```bash
+# Verify the service is up
 curl -I http://localhost:8000/docs
 ```
 
@@ -314,3 +352,7 @@ curl -I http://localhost:8000/docs
 ## 📄 License
 
 Released under the [MIT License](LICENSE). © 2026 Amith Ganta.
+
+---
+
+<p align="center"><i>Built to show what happens to a model <b>after</b> the notebook — the API, the image, the pipeline, and the box it runs on.</i></p>

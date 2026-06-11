@@ -7,7 +7,7 @@ The Insurance Premium Category Predictor API is built with FastAPI and provides 
 ## Base URL
 
 **Local Development:** `http://localhost:8000`  
-**Production:** `http://<AWS_IP>:8000`
+**Live demo:** `http://204.236.207.23:8000`
 
 ## Interactive Documentation
 

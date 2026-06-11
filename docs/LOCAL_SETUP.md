@@ -92,7 +92,7 @@ streamlit run frontend.py --server.port 8501
 ## Project Structure Reference
 
 ```
-fastapi-demo-api/
+FastAPI-ML-Docker-AWS/
 ├── backend/
 │   ├── app.py                    # FastAPI application
 │   ├── model.pkl                 # Trained ML model
@@ -288,18 +288,21 @@ curl -X POST "http://localhost:8000/predict" \
 
 ## Environment Configuration
 
-For cloud deployment, create a `.env` file in the `config/` directory:
+Local runs need no secrets. For cloud deployment, the pipeline reads its
+credentials from **GitHub repository secrets** (see the secrets table in the
+[README](../README.md#cicd-secrets) and [DEPLOYMENT.md](DEPLOYMENT.md)):
 
-```
-# config/.env
-GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-DOCKER_USERNAME=your_docker_username
-DOCKER_TOKEN=dckr_pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-AWS_IP=44.205.0.187
-AWS_KEY_PATH=/path/to/aws-key.pem
-```
+| Secret | Purpose |
+|--------|---------|
+| `DOCKER_USERNAME` / `DOCKER_TOKEN` | Docker Hub publish |
+| `AWS_HOST` | EC2 public IP for SSH deploy |
+| `AWS_SSH_KEY` | EC2 private key (PEM contents) |
+| `AWS_USER` | EC2 SSH user *(optional, defaults to `ubuntu`)* |
 
-**Never commit `.env` files** - they contain secrets. Use `.env.example` as a template.
+For local tooling, copy [`config/.env.example`](../config/.env.example) to
+`config/.env` and fill it in.
+
+**Never commit `.env` files or private keys** — they contain secrets.
 
 ## Next Steps
 
