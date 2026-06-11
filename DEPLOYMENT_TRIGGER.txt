@@ -1,2 +1,3 @@
 # Deployment triggered Sat, May 23, 2026  6:11:33 PM
 # Disk cleaned, retrying deployment Sat, May 23, 2026  6:17:54 PM
+# Migrated to image-first CI/CD: tweakster24/insurance-premium-api:latest — Thu, Jun 11, 2026

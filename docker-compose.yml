@@ -1,15 +1,26 @@
-version: '3.8'
-
+# Local / single-host stack.
+#
+# `api` is the published image `tweakster24/insurance-premium-api:latest`
+# (the single source of truth). It also carries a `build` block so
+# `docker compose build` reproduces the exact same image from source.
 services:
   api:
+    image: tweakster24/insurance-premium-api:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    container_name: fastapi-api
+    container_name: insurance-premium-api
     environment:
       - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
 
   frontend:
     build:
@@ -22,3 +33,4 @@ services:
       - api
     environment:
       - PYTHONUNBUFFERED=1
+    restart: unless-stopped

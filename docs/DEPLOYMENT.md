@@ -1,78 +1,99 @@
 # Deployment Guide
 
-## 📦 Files Added
+The API ships as a single, self-contained image on Docker Hub:
+**`tweakster24/insurance-premium-api:latest`**. Deploying anywhere is the same
+`docker pull && docker run` — there is no environment-specific build step and no
+SSH-orchestration to break.
 
-- `requirements.txt` - Python dependencies
-- `Dockerfile` - API container
-- `Dockerfile.streamlit` - Frontend container
-- `docker-compose.yml` - Run both together
-- `.dockerignore` - Exclude files from build
-- `deploy-aws.sh` - Automated AWS deployment script
+---
 
-## 🐳 Local Testing
+## 🐳 Run the published image (any host)
 
-### Option 1: Docker Compose (API + Frontend)
 ```bash
-docker-compose up
+docker pull tweakster24/insurance-premium-api:latest
+docker run -d --name insurance-premium-api -p 8000:8000 \
+  --restart unless-stopped tweakster24/insurance-premium-api:latest
 ```
-- API: http://localhost:8000/docs
+
+- API docs: `http://localhost:8000/docs`
+- Health probe: `http://localhost:8000/health`
+
+This identical pair of commands works on a laptop, a bare VM, AWS EC2, or any
+container platform.
+
+---
+
+## 🧩 Full stack locally (API + Streamlit UI)
+
+```bash
+docker compose up --build
+```
+
+- API:      http://localhost:8000/docs
 - Frontend: http://localhost:8501
 
-### Option 2: Individual Docker Containers
+---
+
+## ☁️ Deploy on AWS EC2
+
+### 1. Connect to the instance
 ```bash
-# Build API
-docker build -t fastapi-demo-api .
-
-# Build Frontend
-docker build -f Dockerfile.streamlit -t streamlit-demo .
-
-# Run API
-docker run -p 8000:8000 fastapi-demo-api
-
-# Run Frontend (in another terminal)
-docker run -p 8501:8501 streamlit-demo
+ssh -i your-key.pem ubuntu@<EC2_PUBLIC_IP>
 ```
 
-## ☁️ Deploy to AWS
-
-### Step 1: Build & Push to Docker Hub
+### 2. Install Docker (first time only)
 ```bash
-docker build -t YOUR_USERNAME/fastapi-demo-api .
-docker login
-docker push YOUR_USERNAME/fastapi-demo-api
-```
-
-### Step 2: Connect to AWS EC2
-Get your instance IP from AWS console, then:
-```bash
-ssh -i your-key.pem ubuntu@YOUR_AWS_IP
-```
-
-### Step 3: Run on AWS
-```bash
-# Install Docker
 sudo apt update
-sudo apt install docker.io -y
-sudo usermod -aG docker ubuntu
-
-# Pull and run
-docker pull YOUR_USERNAME/fastapi-demo-api
-docker run -d -p 8000:8000 --name api YOUR_USERNAME/fastapi-demo-api
-docker run -d -p 8501:8501 --name frontend YOUR_USERNAME/fastapi-demo-api streamlit run frontend.py --server.port 8501 --server.address 0.0.0.0
+sudo apt install -y docker.io
+sudo usermod -aG docker ubuntu && newgrp docker
 ```
 
-### Step 4: Open Security Groups
-- Go to AWS → EC2 → Security Groups
-- Add inbound rules for ports 8000 (API) and 8501 (Frontend)
-
-### Access Your App
-- API Docs: http://YOUR_AWS_IP:8000/docs
-- Frontend: http://YOUR_AWS_IP:8501
-
-## 🚀 Quick Deploy Script
+### 3. Pull & run the image
 ```bash
-chmod +x deploy-aws.sh
-./deploy-aws.sh YOUR_AWS_IP /path/to/key.pem YOUR_DOCKER_USER YOUR_DOCKER_PASSWORD
+docker pull tweakster24/insurance-premium-api:latest
+docker run -d --name insurance-premium-api -p 8000:8000 \
+  --restart unless-stopped tweakster24/insurance-premium-api:latest
 ```
 
-Done! Your app is live on AWS.
+### 4. Open the security group
+In AWS → EC2 → Security Groups, add an inbound rule for **port 8000** (and
+**8501** if you also run the Streamlit UI).
+
+### 5. Access the service
+- API docs: `http://<EC2_PUBLIC_IP>:8000/docs`
+
+> 💡 Tip: attach an **Elastic IP** to the instance so the public address stays
+> stable across stop/start cycles.
+
+### Updating a running deployment
+```bash
+docker pull tweakster24/insurance-premium-api:latest
+docker rm -f insurance-premium-api
+docker run -d --name insurance-premium-api -p 8000:8000 \
+  --restart unless-stopped tweakster24/insurance-premium-api:latest
+```
+
+---
+
+## 🔄 How the image gets published
+
+The image is produced by the **CI/CD pipeline** ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)),
+not by hand. On every push to `main` the pipeline:
+
+1. Builds the image from `backend/Dockerfile`.
+2. Boots the container and smoke-tests `/health` and `/predict` against the real
+   HTTP contract.
+3. Publishes to Docker Hub **only if** the tests pass.
+
+A broken build never reaches the registry, so a `docker pull` always retrieves a
+verified, runnable image.
+
+### Required repository secrets (for the publish step)
+
+| Secret | Purpose |
+|--------|---------|
+| `DOCKER_USERNAME` | Docker Hub username (`tweakster24`) |
+| `DOCKER_TOKEN` | Docker Hub access token |
+
+If these secrets are absent the pipeline still builds and tests the image — it
+simply skips the publish step and stays green.

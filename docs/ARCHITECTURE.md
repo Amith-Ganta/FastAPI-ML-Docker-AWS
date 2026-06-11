@@ -2,56 +2,49 @@
 
 ## Overview
 
-The Insurance Premium Predictor is a containerized full-stack application with automated CI/CD deployment to cloud infrastructure. The system follows a service-oriented architecture with clear separation between frontend, backend, and infrastructure layers.
+The Insurance Premium Predictor is an **image-first** ML microservice. The core
+deliverable is a single, self-contained Docker image
+(`tweakster24/insurance-premium-api:latest`) that is built and verified by CI,
+published to Docker Hub, and run unchanged on any host. An optional Streamlit UI
+is provided as a separate client. The system favours a single immutable artifact
+over environment-specific deployment scripts.
 
 ## High-Level Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     GitHub Repository                        │
-│  (Code, Workflows, Secrets Management)                       │
+│  (Code, CI/CD workflow, Secrets Management)                  │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      │ [Push to main]
                      │
 ┌────────────────────▼────────────────────────────────────────┐
 │              GitHub Actions CI/CD Pipeline                   │
-│  (Build, Test, Push to Docker Hub, Deploy to AWS)           │
+│  Build image → Boot & smoke-test (/health, /predict) → Push  │
 └────────────────────┬────────────────────────────────────────┘
                      │
-                     │ [Deploy via SSH]
+                     │ [Publish verified image]
+                     ▼
+            ┌──────────────────┐
+            │   Docker Hub     │
+            │ insurance-       │
+            │ premium-api      │
+            │ :latest          │
+            └────────┬─────────┘
                      │
-┌────────────────────▼────────────────────────────────────────┐
-│            AWS EC2 Instance (Ubuntu)                         │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │         Docker & Docker Compose                       │  │
-│  │  ┌─────────────────┐    ┌──────────────────────┐    │  │
-│  │  │  FastAPI        │    │  Streamlit Frontend  │    │  │
-│  │  │  (Port 8000)    │◄──►│  (Port 8501)         │    │  │
-│  │  │                 │    │                      │    │  │
-│  │  │ - app.py        │    │ - frontend.py        │    │  │
-│  │  │ - model.pkl     │    │ - Real-time UI       │    │  │
-│  │  │ - REST API      │    │ - User Input         │    │  │
-│  │  └─────────────────┘    └──────────────────────┘    │  │
-│  │          │                                           │  │
-│  │          │ [HTTP]                                    │  │
-│  │          ▼                                           │  │
-│  │       ┌──────────┐                                   │  │
-│  │       │ ML Model │                                   │  │
-│  │       │(Trained) │                                   │  │
-│  │       └──────────┘                                   │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                                                              │
-│  Public IP: 44.205.0.187                                   │
-└──────────────────────────────────────────────────────────────┘
-
+                     │ [docker pull && docker run]
+                     ▼
 ┌──────────────────────────────────────────────────────────────┐
-│              External Services                               │
-│  ┌──────────────┐          ┌───────────────┐               │
-│  │ Docker Hub   │          │ GitHub API    │               │
-│  │ (Image Repo) │          │ (Secrets,     │               │
-│  │              │          │  Workflows)   │               │
-│  └──────────────┘          └───────────────┘               │
+│        Any host (laptop / VM / AWS EC2 / container PaaS)     │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │   insurance-premium-api container  (Port 8000)       │    │
+│  │   - app.py  (validation + feature engineering)       │    │
+│  │   - model.pkl  (scikit-learn pipeline)               │    │
+│  │   - /health · /predict (REST + Swagger at /docs)     │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                              │
+│  Optional: Streamlit UI container (Port 8501) → calls :8000  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -95,13 +88,16 @@ The Insurance Premium Predictor is a containerized full-stack application with a
 - Python 3.11
 
 **API Endpoints:**
+- `GET /` - Service metadata
+- `GET /health` - Liveness probe (used by Docker, CI, load balancers)
 - `GET /docs` - Interactive Swagger documentation
 - `GET /openapi.json` - OpenAPI specification
-- `POST /predict` - Insurance category prediction
+- `POST /predict` - Insurance category prediction (returns category + confidence + class probabilities)
 
 **Environment:**
 - Port: 8000
-- Container: fastapi-api
+- Container: insurance-premium-api
+- Published image: `tweakster24/insurance-premium-api:latest`
 
 ### 3. ML Model
 
@@ -135,10 +131,10 @@ The Insurance Premium Predictor is a containerized full-stack application with a
 - `.dockerignore` for build optimization
 
 **Deployment:**
-- GitHub Actions for CI/CD automation
-- AWS EC2 (t3.micro) for hosting
-- SSH-based deployment via webfactory/ssh-agent
-- Docker Hub as image registry
+- GitHub Actions builds, smoke-tests, and publishes the image
+- Docker Hub as the single image registry / source of truth
+- Deploy anywhere via `docker pull && docker run` (laptop, VM, AWS EC2, PaaS)
+- No SSH-orchestration step — the verified image *is* the release
 
 ## Data Flow
 
@@ -173,13 +169,14 @@ User Input (Frontend)
          │
          ├─ Prepare feature vector
          │
-         ├─ model.predict()
+         ├─ model.predict() + model.predict_proba()
          │
          ▼
   [JSON Response]
+   { response: { predicted_category, confidence, class_probabilities } }
          │
          ▼
-  [Display on Frontend]
+  [Client / Streamlit UI displays category + confidence]
 ```
 
 ### 2. Deployment Flow
@@ -188,22 +185,22 @@ User Input (Frontend)
 Developer Push to GitHub (main branch)
          │
          ▼
-GitHub Actions Triggered
+GitHub Actions Triggered (deploy.yml)
          │
-         ├─ [Build] Docker images
-         │  - Backend image from backend/
-         │  - Frontend image from frontend/
+         ├─ [Build] API image from backend/Dockerfile
          │
-         ├─ [Push] to Docker Hub
+         ├─ [Run]   start the container
          │
-         ├─ [Deploy] SSH to EC2
+         ├─ [Test]  smoke-test /health and /predict (assert contract)
          │
-         ├─ [Pull] latest images
-         │
-         ├─ [Restart] containers via docker-compose
+         ├─ [Push]  publish to Docker Hub (only if tests pass)
          │
          ▼
-Live on http://<AWS_IP>:8000 and :8501
+Image available: tweakster24/insurance-premium-api:latest
+         │
+         │ [docker pull && docker run on any host]
+         ▼
+Live on http://<HOST>:8000  (Swagger at /docs)
 ```
 
 ## Security Considerations
@@ -211,12 +208,11 @@ Live on http://<AWS_IP>:8000 and :8501
 ### 1. Secrets Management
 
 - GitHub Secrets store sensitive data:
-  - `DOCKER_USERNAME`, `DOCKER_TOKEN` - Docker Hub authentication
-  - `AWS_IP`, `AWS_KEY` - EC2 connection details
-  - `GITHUB_TOKEN` - API access
+  - `DOCKER_USERNAME`, `DOCKER_TOKEN` - Docker Hub authentication (publish step)
 
-- Secrets never logged or exposed in CI/CD logs
-- SSH key management via `webfactory/ssh-agent@v0.9.0`
+- Secrets are never logged or exposed in CI/CD logs
+- The publish step is guarded: if Docker Hub secrets are absent, the pipeline
+  still builds and smoke-tests the image, then skips publishing (stays green)
 
 ### 2. Network Security
 
