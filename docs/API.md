@@ -18,20 +18,12 @@ FastAPI automatically generates interactive API documentation:
 
 ## Endpoints
 
-### 1. Health Check
+### 1. Readiness / Docs
 
-**Endpoint:** `GET /health`
+**Endpoint:** `GET /docs`
 
-Liveness probe used by Docker, the CI smoke tests, and load balancers.
-
-```json
-{
-  "status": "healthy",
-  "model_version": "1.0.0"
-}
-```
-
-A `GET /` root probe is also available and returns service metadata.
+FastAPI's interactive Swagger UI, also used as the readiness probe by Docker and
+the CI smoke tests. `GET /redoc` and `GET /openapi.json` are available too.
 
 ### 2. Predict Premium Category
 

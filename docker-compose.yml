@@ -1,21 +1,18 @@
 # Local / single-host stack.
 #
-# `api` is the published image `tweakster24/insurance-premium-api:latest`
-# (the single source of truth). It also carries a `build` block so
-# `docker compose build` reproduces the exact same image from source.
+# `api` is your own published replica `amith98480/insurance-premium-api:latest`
+# (a mirror of the upstream image, republished into your Docker Hub namespace
+# by the CI/CD pipeline). Pull-and-run — no local build required.
 services:
   api:
-    image: tweakster24/insurance-premium-api:latest
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: amith98480/insurance-premium-api:latest
     ports:
       - "8000:8000"
     container_name: insurance-premium-api
     environment:
       - PYTHONUNBUFFERED=1
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
       interval: 30s
       timeout: 5s
       retries: 3

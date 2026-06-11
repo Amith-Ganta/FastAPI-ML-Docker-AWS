@@ -4,10 +4,11 @@
 
 The Insurance Premium Predictor is an **image-first** ML microservice. The core
 deliverable is a single, self-contained Docker image
-(`tweakster24/insurance-premium-api:latest`) that is built and verified by CI,
-published to Docker Hub, and run unchanged on any host. An optional Streamlit UI
-is provided as a separate client. The system favours a single immutable artifact
-over environment-specific deployment scripts.
+(`amith98480/insurance-premium-api:latest`, mirrored from the upstream working
+image `tweakster24/insurance-premium-api`) that is verified by CI, published to
+Docker Hub, and run unchanged on any host. An optional Streamlit UI is provided
+as a separate client. The system favours a single immutable artifact over
+environment-specific deployment scripts.
 
 ## High-Level Architecture
 
@@ -21,7 +22,7 @@ over environment-specific deployment scripts.
                      │
 ┌────────────────────▼────────────────────────────────────────┐
 │              GitHub Actions CI/CD Pipeline                   │
-│  Build image → Boot & smoke-test (/health, /predict) → Push  │
+│ Mirror upstream → smoke-test (/docs, /predict) → Push → Deploy│
 └────────────────────┬────────────────────────────────────────┘
                      │
                      │ [Publish verified image]
@@ -41,7 +42,7 @@ over environment-specific deployment scripts.
 │  │   insurance-premium-api container  (Port 8000)       │    │
 │  │   - app.py  (validation + feature engineering)       │    │
 │  │   - model.pkl  (scikit-learn pipeline)               │    │
-│  │   - /health · /predict (REST + Swagger at /docs)     │    │
+│  │   - /predict (REST + readiness/Swagger at /docs)     │    │
 │  └─────────────────────────────────────────────────────┘    │
 │                                                              │
 │  Optional: Streamlit UI container (Port 8501) → calls :8000  │
@@ -88,16 +89,14 @@ over environment-specific deployment scripts.
 - Python 3.11
 
 **API Endpoints:**
-- `GET /` - Service metadata
-- `GET /health` - Liveness probe (used by Docker, CI, load balancers)
-- `GET /docs` - Interactive Swagger documentation
+- `GET /docs` - Interactive Swagger documentation (also the readiness probe)
 - `GET /openapi.json` - OpenAPI specification
 - `POST /predict` - Insurance category prediction (returns category + confidence + class probabilities)
 
 **Environment:**
 - Port: 8000
 - Container: insurance-premium-api
-- Published image: `tweakster24/insurance-premium-api:latest`
+- Published image: `amith98480/insurance-premium-api:latest` (mirror of upstream `tweakster24/insurance-premium-api`)
 
 ### 3. ML Model
 
@@ -131,10 +130,10 @@ over environment-specific deployment scripts.
 - `.dockerignore` for build optimization
 
 **Deployment:**
-- GitHub Actions builds, smoke-tests, and publishes the image
-- Docker Hub as the single image registry / source of truth
-- Deploy anywhere via `docker pull && docker run` (laptop, VM, AWS EC2, PaaS)
-- No SSH-orchestration step — the verified image *is* the release
+- GitHub Actions mirrors the upstream image, smoke-tests, and publishes it
+- Docker Hub as the single image registry / source of truth (`amith98480/*`)
+- CI auto-deploys to AWS EC2 (`204.236.207.23`) over SSH once secrets are set
+- Deploy anywhere else via the same `docker pull && docker run`
 
 ## Data Flow
 
@@ -187,20 +186,20 @@ Developer Push to GitHub (main branch)
          ▼
 GitHub Actions Triggered (deploy.yml)
          │
-         ├─ [Build] API image from backend/Dockerfile
+         ├─ [Pull]   upstream tweakster24/insurance-premium-api:latest
          │
-         ├─ [Run]   start the container
+         ├─ [Retag]  amith98480/insurance-premium-api + amith98480/fastapi-ml-docker-aws
          │
-         ├─ [Test]  smoke-test /health and /predict (assert contract)
+         ├─ [Run]    start the container
          │
-         ├─ [Push]  publish to Docker Hub (only if tests pass)
+         ├─ [Test]   smoke-test /docs and /predict (assert contract)
+         │
+         ├─ [Push]   publish replicas to Docker Hub   (guarded by Docker secrets)
+         │
+         ├─ [Deploy] SSH → EC2: pull & run the image  (guarded by AWS secrets)
          │
          ▼
-Image available: tweakster24/insurance-premium-api:latest
-         │
-         │ [docker pull && docker run on any host]
-         ▼
-Live on http://<HOST>:8000  (Swagger at /docs)
+Live on http://204.236.207.23:8000  (Swagger at /docs)
 ```
 
 ## Security Considerations
@@ -209,10 +208,11 @@ Live on http://<HOST>:8000  (Swagger at /docs)
 
 - GitHub Secrets store sensitive data:
   - `DOCKER_USERNAME`, `DOCKER_TOKEN` - Docker Hub authentication (publish step)
+  - `AWS_HOST`, `AWS_SSH_KEY`, `AWS_USER` - EC2 SSH deployment
 
 - Secrets are never logged or exposed in CI/CD logs
-- The publish step is guarded: if Docker Hub secrets are absent, the pipeline
-  still builds and smoke-tests the image, then skips publishing (stays green)
+- Publish and deploy are independently guarded: if their secrets are absent, the
+  pipeline still mirrors and smoke-tests the image, then skips that step (stays green)
 
 ### 2. Network Security
 

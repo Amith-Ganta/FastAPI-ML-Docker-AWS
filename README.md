@@ -3,7 +3,7 @@
 > A production-style machine-learning microservice that predicts an insurance **premium category** (Low / Medium / High) from a person's demographic and lifestyle profile — built with **FastAPI** + **scikit-learn**, packaged as a single portable **Docker image**, and shipped through a self-validating **GitHub Actions** CI/CD pipeline.
 
 [![CI/CD Pipeline](https://github.com/Amith-Ganta/FastAPI-ML-Docker-AWS/actions/workflows/deploy.yml/badge.svg)](https://github.com/Amith-Ganta/FastAPI-ML-Docker-AWS/actions/workflows/deploy.yml)
-[![Docker Image](https://img.shields.io/badge/Docker%20Hub-tweakster24%2Finsurance--premium--api-2496ED.svg?logo=docker&logoColor=white)](https://hub.docker.com/r/tweakster24/insurance-premium-api)
+[![Docker Image](https://img.shields.io/badge/Docker%20Hub-amith98480%2Finsurance--premium--api-2496ED.svg?logo=docker&logoColor=white)](https://hub.docker.com/r/amith98480/insurance-premium-api)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.6-F7931E.svg?logo=scikitlearn&logoColor=white)](https://scikit-learn.org/)
@@ -16,8 +16,8 @@
 The service is published as a ready-to-run image on Docker Hub. No clone, no build, no Python toolchain required:
 
 ```bash
-docker pull tweakster24/insurance-premium-api:latest
-docker run -p 8000:8000 tweakster24/insurance-premium-api:latest
+docker pull amith98480/insurance-premium-api:latest
+docker run -p 8000:8000 amith98480/insurance-premium-api:latest
 ```
 
 Then open the interactive API docs at **http://localhost:8000/docs** and try a live prediction.
@@ -42,9 +42,9 @@ curl -X POST http://localhost:8000/predict \
 
 ## ✨ Highlights
 
-- **Single source of truth** — the API ships as one immutable image, `tweakster24/insurance-premium-api:latest`. The same artifact runs on a laptop, in CI, and in production.
+- **Single source of truth** — the API ships as one immutable image, `amith98480/insurance-premium-api:latest`. The same artifact runs on a laptop, in CI, and in production.
 - **Rich, honest predictions** — every response returns not just the predicted class but a **confidence score** and the **full probability distribution** across all categories.
-- **Self-validating CI/CD** — GitHub Actions builds the image, boots it, and smoke-tests `/health` and `/predict` against the real HTTP contract *before* publishing. A broken build never reaches Docker Hub.
+- **Self-validating CI/CD** — GitHub Actions mirrors the image into the project's Docker Hub namespace, boots it, and smoke-tests `/docs` and `/predict` against the real HTTP contract *before* publishing **and** deploying. A broken image never reaches production.
 - **Typed, self-documenting API** — Pydantic validates every field and auto-generates OpenAPI / Swagger docs at `/docs`.
 - **Smart feature engineering** — raw inputs are transformed into the signals the model actually learned on: BMI, age group, lifestyle risk, and city tier.
 - **Optional Streamlit UI** — a friendly web frontend for non-technical users, wired to the same API.
@@ -60,7 +60,7 @@ curl -X POST http://localhost:8000/predict \
 | Validation | Pydantic 2.11 |
 | Data handling | pandas 2.2 |
 | Packaging | Docker · Docker Compose |
-| Registry | Docker Hub (`tweakster24/insurance-premium-api`) |
+| Registry | Docker Hub (`amith98480/insurance-premium-api`) |
 | CI/CD | GitHub Actions |
 | Optional UI | Streamlit 1.43 |
 
@@ -123,29 +123,27 @@ sequenceDiagram
 ```mermaid
 flowchart LR
     DEV["👩‍💻 git push<br/><i>main</i>"] --> GHA["⚙️ GitHub Actions<br/><i>deploy.yml</i>"]
-    GHA --> BUILD["🐳 Build image<br/><i>backend/Dockerfile</i>"]
-    BUILD --> TEST["🧪 Boot + smoke-test<br/><i>/health · /predict</i>"]
-    TEST --> HUB["📦 Push to Docker Hub<br/><i>:latest</i>"]
-    HUB --> DEPLOY["🌐 docker pull && run<br/><i>any host / EC2</i>"]
+    GHA --> PULL["🐳 Pull upstream<br/><i>+ retag → amith98480/*</i>"]
+    PULL --> TEST["🧪 Boot + smoke-test<br/><i>/docs · /predict</i>"]
+    TEST --> HUB["📦 Push replicas<br/><i>Docker Hub :latest</i>"]
+    HUB --> EC2["🌐 SSH deploy → EC2<br/><i>204.236.207.23:8000</i>"]
 
     classDef step fill:#ECFDF5,stroke:#10B981,stroke-width:1px,color:#064E3B;
     classDef ship fill:#EEF2FF,stroke:#6366F1,stroke-width:1px,color:#1E1B4B;
-    class DEV,GHA,BUILD,TEST step;
-    class HUB,DEPLOY ship;
+    class DEV,GHA,PULL,TEST step;
+    class HUB,EC2 ship;
 ```
 
-Every push to `main` (or a manual `workflow_dispatch`) builds the image, **runs it**, and asserts the live `/health` and `/predict` endpoints return the expected contract. Only a green build is published to Docker Hub. Deployment is then a simple, reproducible `docker pull && docker run` on any host — no brittle SSH-into-a-server step. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design rationale.
+> **Image provenance.** The working API image originates upstream at `tweakster24/insurance-premium-api`. The pipeline **mirrors** it into this project's own Docker Hub namespace — `amith98480/insurance-premium-api` and `amith98480/fastapi-ml-docker-aws` — so the deployed artifact is always owned and controlled here.
+
+Every push to `main` (or a manual `workflow_dispatch`) pulls the upstream image, retags it under `amith98480/*`, **runs it**, and asserts the live `/docs` and `/predict` endpoints return the expected contract. Only a verified image is published to Docker Hub and rolled out to EC2. The publish and deploy steps are **guarded** — if their secrets aren't configured, those steps skip cleanly and the run stays green. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design rationale.
 
 ---
 
 ## 📡 API Reference
 
-### `GET /health`
-Liveness probe used by Docker, CI smoke tests, and load balancers.
-
-```json
-{ "status": "healthy", "model_version": "1.0.0" }
-```
+### `GET /docs`
+Interactive Swagger UI — also used as the readiness probe by Docker and the CI smoke tests. `GET /redoc` and `GET /openapi.json` are available too.
 
 ### `POST /predict`
 Predict the insurance premium category for a user profile.
@@ -211,8 +209,8 @@ The output is a discrete premium category plus a calibrated probability for **ev
 ### Option A — Just the API (recommended)
 
 ```bash
-docker pull tweakster24/insurance-premium-api:latest
-docker run -p 8000:8000 tweakster24/insurance-premium-api:latest
+docker pull amith98480/insurance-premium-api:latest
+docker run -p 8000:8000 amith98480/insurance-premium-api:latest
 # → http://localhost:8000/docs
 ```
 
@@ -246,7 +244,7 @@ More detail in [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md).
 
 ```
 FastAPI-ML-Docker-AWS/
-├── backend/                   # FastAPI service (the published image)
+├── backend/                   # FastAPI service (reference source for the API)
 │   ├── app.py                 # API: validation, feature engineering, inference
 │   ├── model.pkl              # Trained scikit-learn pipeline
 │   ├── Dockerfile             # Image definition
@@ -260,7 +258,7 @@ FastAPI-ML-Docker-AWS/
 ├── docs/                      # API, architecture, setup & deployment guides
 ├── data/                      # Training & sample data
 ├── scripts/                   # Helper scripts
-├── .github/workflows/         # CI/CD: build → smoke-test → publish
+├── .github/workflows/         # CI/CD: mirror → smoke-test → publish → deploy
 │   └── deploy.yml
 ├── docker-compose.yml         # Full-stack local orchestration
 └── README.md
@@ -270,15 +268,27 @@ FastAPI-ML-Docker-AWS/
 
 ## 🚢 Deployment
 
-Because the API is a self-contained image, deploying anywhere is the same two commands:
+CI/CD deploys automatically to the AWS EC2 host (`204.236.207.23`) on every push to `main`, once the AWS secrets are set (see below). To deploy manually anywhere, it's the same two commands:
 
 ```bash
-docker pull tweakster24/insurance-premium-api:latest
+docker pull amith98480/insurance-premium-api:latest
 docker run -d --name insurance-premium-api -p 8000:8000 \
-  --restart unless-stopped tweakster24/insurance-premium-api:latest
+  --restart unless-stopped amith98480/insurance-premium-api:latest
 ```
 
 This works identically on a laptop, a bare VM, AWS EC2, or any container platform. The full deployment playbook (including EC2 and security-group notes) lives in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+### CI/CD secrets
+
+| Secret | Used for | Example |
+|--------|----------|---------|
+| `DOCKER_USERNAME` | Docker Hub login (publish) | `amith98480` |
+| `DOCKER_TOKEN` | Docker Hub access token | `dckr_pat_…` |
+| `AWS_HOST` | EC2 public IP for SSH deploy | `204.236.207.23` |
+| `AWS_SSH_KEY` | EC2 private key (PEM contents) | `-----BEGIN …` |
+| `AWS_USER` | EC2 SSH user *(optional, defaults to `ubuntu`)* | `ubuntu` |
+
+Publish and deploy are independently guarded — set just the Docker secrets to publish, add the AWS secrets to also deploy. Missing secrets skip their step without failing the run.
 
 ---
 
@@ -296,7 +306,7 @@ docker logs insurance-premium-api
 
 **Verify the service is up**
 ```bash
-curl http://localhost:8000/health
+curl -I http://localhost:8000/docs
 ```
 
 ---
