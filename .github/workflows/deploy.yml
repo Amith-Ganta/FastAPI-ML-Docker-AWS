@@ -1,20 +1,20 @@
 name: CI/CD Pipeline
 
-# Mirror-and-deploy pipeline.
+# Build-test-and-deploy pipeline.
 #
-# The working API image lives upstream at tweakster24/insurance-premium-api.
-# This pipeline copies it into the OWNER's own Docker Hub namespace (amith98480),
-# verifies it actually answers the HTTP contract, publishes it, and (optionally)
-# rolls it out to the EC2 host.
+# This pipeline builds the API image FROM THIS REPO's own source (backend/),
+# verifies it answers the HTTP contract, publishes it, and (optionally) rolls
+# it out to the EC2 host. There is no upstream mirror — the code in this repo
+# is the single source of truth.
 #
-#   1. Pull the upstream image.
-#   2. Retag it under amith98480/* (two identical names).
-#   3. Boot it and smoke-test /docs + /predict.
-#   4. Push the replicas to Docker Hub  (skipped cleanly if no Docker secrets).
-#   5. Deploy to EC2 via SSH            (skipped cleanly if no AWS secrets).
+#   1. Build the API image from backend/.
+#   2. Boot it and smoke-test /docs + /predict (strict JSON assertion).
+#   3. Build the Streamlit UI image from frontend/.
+#   4. Push both to Docker Hub  (skipped cleanly if no Docker secrets).
+#   5. Deploy to EC2 via SSH     (skipped cleanly if no AWS secrets).
 #
 # Steps that need secrets are guarded, so the run is always green even before
-# the secrets are configured — no build step, nothing that can drift or fail.
+# the secrets are configured — the build + smoke test still run and must pass.
 
 on:
   push:
@@ -24,29 +24,26 @@ on:
   workflow_dispatch:
 
 env:
-  UPSTREAM_IMAGE: tweakster24/insurance-premium-api:latest
   IMAGE_PRIMARY: amith98480/insurance-premium-api
   IMAGE_ALIAS: amith98480/fastapi-ml-docker-aws
   IMAGE_STREAMLIT: amith98480/insurance-premium-streamlit
   IMAGE_TAG: latest
 
 jobs:
-  mirror-test-deploy:
-    name: Mirror upstream, smoke-test, publish & deploy
+  build-test-deploy:
+    name: Build from source, smoke-test, publish & deploy
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Pull upstream image
-        run: docker pull "$UPSTREAM_IMAGE"
-
-      - name: Retag under amith98480 namespace
+      # ---- Build the API image from this repo's backend/ ------------------- #
+      - name: Build API image
         run: |
-          docker tag "$UPSTREAM_IMAGE" "$IMAGE_PRIMARY:$IMAGE_TAG"
-          docker tag "$UPSTREAM_IMAGE" "$IMAGE_ALIAS:$IMAGE_TAG"
-          echo "Tagged $IMAGE_PRIMARY:$IMAGE_TAG and $IMAGE_ALIAS:$IMAGE_TAG"
+          docker build -t "$IMAGE_PRIMARY:$IMAGE_TAG" backend
+          docker tag "$IMAGE_PRIMARY:$IMAGE_TAG" "$IMAGE_ALIAS:$IMAGE_TAG"
+          echo "Built $IMAGE_PRIMARY:$IMAGE_TAG and tagged $IMAGE_ALIAS:$IMAGE_TAG"
 
       - name: Start container
         run: docker run -d --name premium-api -p 8000:8000 "$IMAGE_PRIMARY:$IMAGE_TAG"
@@ -63,15 +60,24 @@ jobs:
           docker logs premium-api
           exit 1
 
-      - name: Smoke-test /predict
+      - name: Smoke-test /predict (strict contract check)
         run: |
           response=$(curl -fsS -X POST http://localhost:8000/predict \
             -H "Content-Type: application/json" \
             -d '{"age":30,"weight":65,"height":1.7,"income_lpa":10,"smoker":true,"city":"Mumbai","occupation":"private_job"}')
           echo "Response: $response"
-          echo "$response" | grep -q '"predicted_category"' \
-            || { echo "::error::predicted_category missing from response"; exit 1; }
-          echo "✅ /predict returned the expected contract"
+          # Parse the JSON and assert the FLAT contract with real value checks —
+          # a top-level predicted_category in {Low,Medium,High}, a numeric
+          # confidence in [0,1], and a class_probabilities object. `jq -e`
+          # exits non-zero if any assertion is false or a key is missing, so a
+          # wrong response shape fails the job instead of passing on a substring.
+          echo "$response" | jq -e '
+            (.predicted_category | type == "string" and (. == "Low" or . == "Medium" or . == "High"))
+            and (.confidence | type == "number" and . >= 0 and . <= 1)
+            and (.class_probabilities | type == "object")
+          ' > /dev/null \
+            || { echo "::error::/predict did not return the expected flat contract"; exit 1; }
+          echo "✅ /predict returned the expected flat contract"
 
       - name: Tear down container
         if: always()
@@ -91,7 +97,7 @@ jobs:
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Docker Hub secrets (DOCKER_USERNAME / DOCKER_TOKEN) not set — tests passed, skipping publish."
+            echo "::notice::Docker Hub secrets (DOCKER_USERNAME / DOCKER_TOKEN) not set — build + tests passed, skipping publish."
           fi
 
       - name: Log in to Docker Hub
@@ -101,13 +107,13 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
-      - name: Push replicas to Docker Hub
+      - name: Push images to Docker Hub
         if: steps.docker.outputs.available == 'true' && github.event_name != 'pull_request'
         run: |
           docker push "$IMAGE_PRIMARY:$IMAGE_TAG"
           docker push "$IMAGE_ALIAS:$IMAGE_TAG"
           docker push "$IMAGE_STREAMLIT:$IMAGE_TAG"
-          echo "🚀 Published API replicas and $IMAGE_STREAMLIT:$IMAGE_TAG"
+          echo "🚀 Published $IMAGE_PRIMARY, $IMAGE_ALIAS and $IMAGE_STREAMLIT ($IMAGE_TAG)"
 
       # ---- Deploy to EC2 (guarded) ----------------------------------------- #
       - name: Check AWS deploy credentials

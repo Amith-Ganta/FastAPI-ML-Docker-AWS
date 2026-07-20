@@ -128,7 +128,7 @@ def predict_premium(data: UserInput):
         'occupation': data.occupation
     }])
 
-    predicted_category = model.predict(input_df)[0]
+    predicted_category = str(model.predict(input_df)[0])
     probabilities = model.predict_proba(input_df)[0]
 
     class_probabilities = {
@@ -137,10 +137,10 @@ def predict_premium(data: UserInput):
     }
     confidence = round(float(max(probabilities)), 2)
 
+    # Flat response contract: predicted_category / confidence /
+    # class_probabilities live at the top level (no wrapper object).
     return JSONResponse(status_code=200, content={
-        "response": {
-            "predicted_category": predicted_category,
-            "confidence": confidence,
-            "class_probabilities": class_probabilities,
-        }
+        "predicted_category": predicted_category,
+        "confidence": confidence,
+        "class_probabilities": class_probabilities,
     })
