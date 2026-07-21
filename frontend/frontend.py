@@ -1,7 +1,11 @@
+import os
 import streamlit as st
 import requests
 
-API_URL = "http://204.236.207.23:8000/predict"
+# API endpoint is configurable via env var so the UI survives an EC2 public-IP
+# change (stop/start reassigns it) without a code edit. Falls back to the
+# current deployed host for local/default runs.
+API_URL = os.getenv("API_URL", "http://204.236.207.23:8000/predict")
 
 st.title("Insurance Premium Category Predictor")
 st.markdown("Enter your details below:")
