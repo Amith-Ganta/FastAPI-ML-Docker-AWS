@@ -145,11 +145,11 @@ Once the API is running:
 docker ps
 
 # View container logs
-docker logs fastapi-api        # Backend logs
-docker logs streamlit-frontend # Frontend logs
+docker logs insurance-premium-api  # Backend logs
+docker logs streamlit-frontend     # Frontend logs
 
 # Follow logs in real-time
-docker logs -f fastapi-api
+docker logs -f insurance-premium-api
 ```
 
 ### Rebuild Containers
@@ -218,14 +218,19 @@ git lfs status  # If using Git LFS
 
 ### Frontend can't reach API
 
-Check the API URL in `frontend/frontend.py`:
+The UI reads its target from the `API_URL` environment variable (see
+`frontend/frontend.py`), so you point it at the right host without editing code:
 
-```python
-# Should be:
-API_URL = "http://localhost:8000/predict"  # For local development
-# Or:
-API_URL = "http://fastapi-api:8000/predict"  # Within Docker network
+```bash
+# Local Python (API on the host):
+API_URL="http://localhost:8000/predict" streamlit run frontend.py --server.port 8501
+
+# Within the Docker Compose network, docker-compose.yml already sets:
+#   API_URL=http://api:8000/predict
 ```
+
+If `API_URL` is unset it falls back to the deployed EC2 host, which is only
+reachable when that instance is running.
 
 ### Container crashes on startup
 

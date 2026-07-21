@@ -1,11 +1,12 @@
 # Deployment Guide
 
 The API ships as a single, self-contained image on Docker Hub:
-**`amith98480/insurance-premium-api:latest`** (also mirrored as
-`amith98480/fastapi-ml-docker-aws:latest`). It is a republished copy of the
-upstream working image `tweakster24/insurance-premium-api`, mirrored into this
-project's own namespace by CI. Deploying anywhere is the same
-`docker pull && docker run` — no environment-specific build step.
+**`amith98480/insurance-premium-api:latest`** (also tagged
+`amith98480/fastapi-ml-docker-aws:latest`). CI builds it directly from this
+repo's [`backend/`](../backend) source on every push to `main`, so the image is
+always reproducible from the code in this repository. Deploying anywhere is the
+same `docker pull && docker run` — no environment-specific build step at deploy
+time.
 
 ---
 
@@ -85,13 +86,14 @@ Everything is driven by the **CI/CD pipeline**
 ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)), not by hand.
 On every push to `main` the pipeline:
 
-1. Pulls the upstream image `tweakster24/insurance-premium-api:latest`.
-2. Retags it as `amith98480/insurance-premium-api:latest` and
+1. Builds the API image from [`backend/`](../backend) and tags it as both
+   `amith98480/insurance-premium-api:latest` and
    `amith98480/fastapi-ml-docker-aws:latest`.
-3. Boots the container and smoke-tests `/docs` and `/predict` against the real
-   HTTP contract.
-4. Publishes both replicas to Docker Hub **only if** the tests pass.
-5. SSH-deploys the image to the EC2 host and verifies it is reachable.
+2. Boots the container and smoke-tests `/docs` and `/predict` against the real
+   HTTP contract (a strict `jq` assertion on the flat response shape).
+3. Builds the Streamlit UI image from [`frontend/`](../frontend).
+4. Publishes all images to Docker Hub **only if** the tests pass.
+5. SSH-deploys the API and UI to the EC2 host and verifies they are reachable.
 
 Steps 4 and 5 are independently guarded — a missing secret skips that step
 without failing the run, so the pipeline is always green.

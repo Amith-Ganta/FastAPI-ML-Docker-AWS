@@ -45,11 +45,9 @@ curl -X POST http://localhost:8000/predict \
 
 ```json
 {
-  "response": {
-    "predicted_category": "Low",
-    "confidence": 0.66,
-    "class_probabilities": { "High": 0.01, "Low": 0.66, "Medium": 0.33 }
-  }
+  "predicted_category": "Low",
+  "confidence": 0.66,
+  "class_probabilities": { "High": 0.01, "Low": 0.66, "Medium": 0.33 }
 }
 ```
 
@@ -144,21 +142,21 @@ sequenceDiagram
 ```mermaid
 flowchart LR
     DEV["git push<br/>main"] --> GHA["GitHub Actions<br/>deploy.yml"]
-    GHA --> PULL["Resolve image<br/>tag to amith98480"]
-    PULL --> TEST["Boot + smoke-test<br/>/docs · /predict"]
-    TEST --> BUILD["Build Streamlit UI"]
-    BUILD --> HUB["Push to Docker Hub<br/>latest"]
+    GHA --> BUILD["Build API image<br/>from backend/"]
+    BUILD --> TEST["Boot + smoke-test<br/>/docs · /predict"]
+    TEST --> UI["Build Streamlit UI"]
+    UI --> HUB["Push to Docker Hub<br/>latest"]
     HUB --> EC2["SSH deploy to EC2<br/>api 8000 · ui 8501"]
 
     classDef step fill:#ECFDF5,stroke:#10B981,stroke-width:1px,color:#064E3B;
     classDef ship fill:#EEF2FF,stroke:#6366F1,stroke-width:1px,color:#1E1B4B;
-    class DEV,GHA,PULL,TEST,BUILD step;
+    class DEV,GHA,BUILD,TEST,UI step;
     class HUB,EC2 ship;
 ```
 
-The pipeline's defining property: **a broken image can never reach production.** Every run boots the container and asserts the real `/docs` and `/predict` endpoints return the expected contract *before* anything is published or deployed. The publish and deploy stages are **independently guarded** — if their secrets aren't configured, those steps skip cleanly and the run stays green, so the pipeline is safe to run from a fork or before infra exists.
+The pipeline's defining property: **a broken image can never reach production.** Every run builds the API image from this repo's own `backend/` source, boots the container, and asserts the real `/docs` and `/predict` endpoints return the expected contract *before* anything is published or deployed. The publish and deploy stages are **independently guarded** — if their secrets aren't configured, those steps skip cleanly and the run stays green, so the pipeline is safe to run from a fork or before infra exists.
 
-> **🔍 Image provenance — full transparency.** The trained model artifact originates from the upstream image `tweakster24/insurance-premium-api`. This project's engineering contribution is the layer *around* the model: the API contract, containerization, the self-validating CI/CD pipeline, the cloud deployment, and the full-stack UI. The pipeline mirrors the upstream artifact into this project's own Docker Hub namespace (`amith98480/insurance-premium-api` and `amith98480/fastapi-ml-docker-aws`) so the deployed, owned artifact is always reproducible and under this project's control.
+> **🔍 Built from source — single source of truth.** The image is built directly from this repository's `backend/` (`app.py`, `model.pkl`, `Dockerfile`) on every push — there is no upstream mirror. The exact code you see here is what the smoke test validates, what gets published to this project's Docker Hub namespace (`amith98480/insurance-premium-api`, aliased as `amith98480/fastapi-ml-docker-aws`), and what runs in production. Anyone can reproduce the deployed artifact from a clean clone with a single `docker build`.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design rationale.
 
@@ -211,15 +209,13 @@ Predict the insurance premium category for a user profile.
 | `city` | string | any city name |
 | `occupation` | enum | `retired`, `freelancer`, `student`, `government_job`, `business_owner`, `unemployed`, `private_job` |
 
-**Response** — `200 OK`
+**Response** — `200 OK` (flat — values live at the top level, no wrapper object)
 
 ```json
 {
-  "response": {
-    "predicted_category": "Low",
-    "confidence": 0.66,
-    "class_probabilities": { "High": 0.01, "Low": 0.66, "Medium": 0.33 }
-  }
+  "predicted_category": "Low",
+  "confidence": 0.66,
+  "class_probabilities": { "High": 0.01, "Low": 0.66, "Medium": 0.33 }
 }
 ```
 

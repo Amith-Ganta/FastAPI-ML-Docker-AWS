@@ -1,11 +1,15 @@
 # Local / single-host stack.
 #
-# `api` is your own published replica `amith98480/insurance-premium-api:latest`
-# (a mirror of the upstream image, republished into your Docker Hub namespace
-# by the CI/CD pipeline). Pull-and-run — no local build required.
+# `api` is built straight from this repo's ./backend source — the same build the
+# CI/CD pipeline runs and publishes as amith98480/insurance-premium-api:latest.
+# Building locally guarantees local == CI == prod. To skip the build and run the
+# published image instead, comment out `build:` and uncomment the `image:` line.
 services:
   api:
-    image: amith98480/insurance-premium-api:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # image: amith98480/insurance-premium-api:latest   # pull-and-run alternative
     ports:
       - "8000:8000"
     container_name: insurance-premium-api
@@ -30,4 +34,6 @@ services:
       - api
     environment:
       - PYTHONUNBUFFERED=1
+      # Point the UI at the compose `api` service rather than the deployed host.
+      - API_URL=http://api:8000/predict
     restart: unless-stopped

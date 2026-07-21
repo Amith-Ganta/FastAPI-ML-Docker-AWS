@@ -7,8 +7,9 @@ person's profile to an insurance premium category (Low / Medium / High) and the
 service returns the predicted class together with a confidence score and the
 full class-probability distribution.
 
-This is the single source of truth behind the published image
-`tweakster24/insurance-premium-api:latest`.
+This module is the single source of truth for the service: CI builds the
+published image (`amith98480/insurance-premium-api:latest`) directly from this
+source, so the code here defines the exact behaviour that runs in production.
 """
 
 from fastapi import FastAPI

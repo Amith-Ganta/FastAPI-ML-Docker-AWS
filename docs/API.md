@@ -13,7 +13,7 @@ The Insurance Premium Category Predictor API is built with FastAPI and provides 
 
 FastAPI automatically generates interactive API documentation:
 - **Swagger UI**: `GET /docs`
-- **ReDoc**: `GET/redoc`
+- **ReDoc**: `GET /redoc`
 - **OpenAPI Schema**: `GET /openapi.json`
 
 ## Endpoints
@@ -71,25 +71,26 @@ Predicts insurance premium category based on user demographics and health metric
 
 **Status:** `200 OK`
 
+The response is **flat** — the three fields live at the top level, with no
+wrapper object.
+
 ```json
 {
-  "response": {
-    "predicted_category": "Low",
-    "confidence": 0.66,
-    "class_probabilities": {
-      "High": 0.01,
-      "Low": 0.66,
-      "Medium": 0.33
-    }
+  "predicted_category": "Low",
+  "confidence": 0.66,
+  "class_probabilities": {
+    "High": 0.01,
+    "Low": 0.66,
+    "Medium": 0.33
   }
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `response.predicted_category` | string | Most likely premium category (`Low` / `Medium` / `High`) |
-| `response.confidence` | float | Probability of the predicted category (0–1, rounded to 2 dp) |
-| `response.class_probabilities` | object | Probability for every category, summing to ~1.0 |
+| `predicted_category` | string | Most likely premium category (`Low` / `Medium` / `High`) |
+| `confidence` | float | Probability of the predicted category (0–1, rounded to 2 dp) |
+| `class_probabilities` | object | Probability for every category, summing to ~1.0 |
 
 #### Example Request
 
@@ -111,14 +112,12 @@ curl -X POST "http://localhost:8000/predict" \
 
 ```json
 {
-  "response": {
-    "predicted_category": "Medium",
-    "confidence": 0.58,
-    "class_probabilities": {
-      "High": 0.12,
-      "Low": 0.30,
-      "Medium": 0.58
-    }
+  "predicted_category": "Medium",
+  "confidence": 0.58,
+  "class_probabilities": {
+    "High": 0.12,
+    "Low": 0.30,
+    "Medium": 0.58
   }
 }
 ```
